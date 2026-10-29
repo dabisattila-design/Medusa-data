@@ -1,0 +1,38 @@
+name: binance-data
+
+on:
+  schedule:
+    - cron: "23 3 * * *"     # naponta 03:23 UTC; a Binance napi fájlja a következő napon jelenik meg
+  workflow_dispatch: {}       # kézi indítás (az első, visszamenőleges letöltéshez is)
+
+permissions:
+  contents: write
+
+concurrency:
+  group: medusa-data-push
+  cancel-in-progress: false
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - name: Binance archívum (BTCUSDT, ETHUSDT, 1h) – D-006
+        run: python scripts/fetch_binance.py
+      - name: Mentés a tárolóba
+        if: always()
+        run: |
+          git config user.name "medusa-data-bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/binance
+          if git diff --cached --quiet; then
+            echo "Nincs új adat."
+          else
+            git commit -m "binance: $(date -u +%Y-%m-%dT%H:%MZ)"
+            git pull --rebase
+            git push
+          fi
