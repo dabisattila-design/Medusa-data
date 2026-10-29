@@ -2,7 +2,7 @@
 """Medusa D-006 – napi volatilitás-előrejelzések naplózása (csak standard könyvtár).
 
 Minden futáskor pótolja a hiányzó előrejelzéseket 2026-10-28-as kiinduló naptól a tegnapi (lezárt) UTC-napig,
-a rögzített paraméterekkel (data/d006/medusa_d006_params.json), két forrásból:
+a rögzített paraméterekkel (scripts/medusa_d006_params.json), két forrásból:
   kraken  – elsődleges, döntő (EUR, data/ohlc/60 és data/ohlc/1440)
   binance – másodlagos (USDT, data/binance/1h)
 Kimenet: data/d006/forecasts.csv (hozzáfűzés). A git-commit ideje igazolja, mikor készült az előrejelzés.
@@ -15,7 +15,8 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import medusa_vol_har as m  # noqa: E402
 
 ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
-PARAMS = os.path.join(ROOT, "data", "d006", "medusa_d006_params.json")
+PARAMS = next((p for p in (os.path.join(os.path.dirname(os.path.abspath(__file__)), "medusa_d006_params.json"),
+                           os.path.join(ROOT, "data", "d006", "medusa_d006_params.json")) if os.path.exists(p)), None)
 OUT = os.path.join(ROOT, "data", "d006", "forecasts.csv")
 START = "2026-10-28"
 SOURCES = {
@@ -29,6 +30,9 @@ HDR = ["created_utc", "late", "source", "origin_day", "target_days", "asset", "h
 
 def main():
     import json
+    if PARAMS is None:
+        print("Hiányzik a medusa_d006_params.json (scripts/ mappában kell lennie).", file=sys.stderr)
+        return 1
     params = json.load(open(PARAMS))
     now = dt.datetime.now(dt.timezone.utc)
     yesterday = (now.date() - dt.timedelta(days=1)).isoformat()
