@@ -8,7 +8,8 @@ Gyűjtött adatok (data/ alatt):
   ticker/ÉÉÉÉ-HH.csv   pillanatkép: bid, ask, spread, utolsó ár, 24 órás forgalom
   depth/ÉÉÉÉ-HH.csv    ajánlati könyv: legjobb bid/ask, likviditás (EUR) a középár ±0,5%-os sávjában
   errors.log           sikertelen lekérések
-Kilépési kód: 1, ha bármelyik lekérés sikertelen volt (a már letöltött adatok ekkor is mentésre kerülnek).
+Kilépési kód: 1, ha bármelyik OHLC-lekérés sikertelen volt (a már letöltött adatok ekkor is mentésre kerülnek).
+A Ticker/Depth hibák (pl. "EGeneral:No data") csak az errors.log-ba kerülnek, hibakódot nem okoznak.
 """
 import csv, json, os, sys, time, urllib.request, urllib.error, datetime as dt
 
@@ -18,7 +19,8 @@ INTERVALS = [1440, 60]
 DEPTH_BAND = 0.005
 ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "data")
 UA = {"User-Agent": "medusa-research-data/1.0 (academic, public endpoints only)"}
-errors = []
+errors = []        # minden hiba (errors.log)
+ohlc_errors = []   # csak ezek okoznak 1-es kilépési kódot
 
 def get(endpoint, **params):
     """Kraken nyilvános végpont hívása, 3 próbálkozással. A 'result' objektum egyetlen párkulcsának értékét adja vissza."""
@@ -103,7 +105,8 @@ def run():
                 name, candles = get("OHLC", pair=p, interval=iv)
                 merge_ohlc(os.path.join(ROOT, "ohlc", str(iv), f"{p}.csv"), candles, iv, t)
             except Exception as e:  # noqa: BLE001
-                errors.append(f"{stamp} OHLC {p} {iv}: {e}")
+                msg = f"{stamp} OHLC {p} {iv}: {e}"
+                errors.append(msg); ohlc_errors.append(msg)
     if ticker_rows:
         append(os.path.join(ROOT, "ticker", f"{month}.csv"),
                ["fetched_utc", "pair", "kraken_key", "bid", "ask", "mid", "spread_pct", "last", "vwap_24h", "volume_24h"],
@@ -118,6 +121,7 @@ def run():
         with open(append_err, "a") as f:
             f.write("\n".join(errors) + "\n")
         print("\n".join(errors), file=sys.stderr)
+    if ohlc_errors:
         return 1
     print(f"OK {stamp}: {len(ticker_rows)} ticker, {len(depth_rows)} depth")
     return 0
