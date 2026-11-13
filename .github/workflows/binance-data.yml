@@ -3,6 +3,9 @@ name: binance-data
 on:
   schedule:
     - cron: "23 3 * * *"     # naponta 03:23 UTC; a Binance napi fájlja a következő napon jelenik meg
+    - cron: "53 7 * * *"     # pótló futások: a manifest alapján a kész fájlokat kihagyja
+    - cron: "53 13 * * *"
+    - cron: "53 19 * * *"
   workflow_dispatch: {}       # kézi indítás (az első, visszamenőleges letöltéshez is)
 
 permissions:
@@ -33,6 +36,11 @@ jobs:
             echo "Nincs új adat."
           else
             git commit -m "binance: $(date -u +%Y-%m-%dT%H:%MZ)"
-            git pull --rebase
-            git push
+            ok=0
+            for i in 1 2 3; do
+              if git pull --rebase && git push; then ok=1; break; fi
+              git rebase --abort 2>/dev/null || true
+              echo "Push sikertelen ($i/3)"; sleep 20
+            done
+            [ "$ok" = 1 ]
           fi

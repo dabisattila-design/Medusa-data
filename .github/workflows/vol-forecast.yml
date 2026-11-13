@@ -3,6 +3,9 @@ name: vol-forecast
 on:
   schedule:
     - cron: "41 4 * * *"     # naponta 04:41 UTC: a Kraken órás és a Binance napi adat már bent van
+    - cron: "11 9 * * *"     # pótló futások: csak a hiányzó sorokat számolja
+    - cron: "11 15 * * *"
+    - cron: "11 21 * * *"
   workflow_dispatch: {}
 
 permissions:
@@ -33,6 +36,11 @@ jobs:
             echo "Nincs új előrejelzés."
           else
             git commit -m "d006 forecast: $(date -u +%Y-%m-%dT%H:%MZ)"
-            git pull --rebase
-            git push
+            ok=0
+            for i in 1 2 3; do
+              if git pull --rebase && git push; then ok=1; break; fi
+              git rebase --abort 2>/dev/null || true
+              echo "Push sikertelen ($i/3)"; sleep 20
+            done
+            [ "$ok" = 1 ]
           fi
